@@ -7,48 +7,93 @@ export class City extends Document {
     city: string;
 
     @Prop({
-        type: Object,
-        required: true,
-        coord: { type: Object, lon: { type: Number }, lat: { type: Number } },
-        weather: { type: Array, default: [] },
-        main: {
-            type: Object,
-            temp: { type: Number },
-            feels_like: { type: Number },
-            temp_min: { type: Number },
-            temp_max: { type: Number },
-            pressure: { type: Number },
-            humidity: { type: Number },
-        },
-        wind: {
-            type: Object,
-            speed: { type: Number },
-            deg: { type: Number },
-            gust: { type: Number },
-        },
-        clouds: { type: Object, all: { type: Number } },
-        sys: {
-            type: Object,
-            typeValue: { type: Number },
-            id: { type: Number },
-            country: { type: String },
-            sunrise: { type: Number },
-            sunset: { type: Number },
-            timezone: { type: Number },
+        type: {
+            lon: { type: Number },
+            lat: { type: Number },
         },
     })
-    data: any; // Dữ liệu thời tiết từ OpenWeather API
+    coord: {
+        lon: number;
+        lat: number;
+    };
+
+    @Prop({
+        type: [{ id: Number, main: String, description: String, icon: String }],
+        default: [],
+    })
+    weather: {
+        id: number;
+        main: string;
+        description: string;
+        icon: string;
+    }[];
+
+    @Prop({
+        type: {
+            temp: Number,
+            feels_like: Number,
+            temp_min: Number,
+            temp_max: Number,
+            pressure: Number,
+            humidity: Number,
+        },
+    })
+    main: {
+        temp: number;
+        feels_like: number;
+        temp_min: number;
+        temp_max: number;
+        pressure: number;
+        humidity: number;
+    };
+
+    @Prop({
+        type: {
+            speed: Number,
+            deg: Number,
+            gust: Number,
+        },
+    })
+    wind: {
+        speed: number;
+        deg: number;
+        gust: number;
+    };
+
+    @Prop({ type: { all: Number } })
+    clouds: {
+        all: number;
+    };
+
+    @Prop({
+        type: {
+            typeValue: Number,
+            id: Number,
+            country: String,
+            sunrise: Number,
+            sunset: Number,
+            timezone: Number,
+        },
+    })
+    sys: {
+        typeValue: number;
+        id: number;
+        country: string;
+        sunrise: number;
+        sunset: number;
+        timezone: number;
+    };
 
     @Prop({
         type: Date,
         default: () => new Date(Date.now() + 7 * 60 * 60 * 1000),
-    }) // UTC+7
+    })
     createdAt: Date;
 
     @Prop({
         type: Date,
         default: () => new Date(Date.now() + 7 * 60 * 60 * 1000),
-    }) // UTC+7
+    })
     updatedAt: Date;
 }
 

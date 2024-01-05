@@ -4,6 +4,7 @@ import axios, { AxiosResponse } from 'axios';
 import { Model } from 'mongoose';
 import { Observable, catchError, throwError } from 'rxjs';
 import { Geocoding } from 'src/schema/geocoding.schema';
+import { Cron, CronExpression } from '@nestjs/schedule';
 @Injectable()
 export class GeocodingService {
     private readonly apiKey = '9bbc9de017cfa48a70c5390c42bc83c1';
@@ -13,6 +14,7 @@ export class GeocodingService {
         private geocodingModel: Model<Geocoding>,
     ) {}
     // Call api and save database
+    @Cron(CronExpression.EVERY_5_MINUTES)
     getGeocoding(city: string): Observable<any> {
         const url = `${this.apiUrl}?q=${city}&limit=5&appid=${this.apiKey}`;
 

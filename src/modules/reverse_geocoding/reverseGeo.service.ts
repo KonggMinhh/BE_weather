@@ -4,6 +4,7 @@ import axios, { AxiosResponse } from 'axios';
 import { Model } from 'mongoose';
 import { Observable, catchError, throwError } from 'rxjs';
 import { ReverseGeocoding } from 'src/schema/reverseGeocoding';
+import { Cron, CronExpression } from '@nestjs/schedule';
 @Injectable()
 export class ReverseGeocodingService {
     private readonly apiKey = '9bbc9de017cfa48a70c5390c42bc83c1';
@@ -13,6 +14,7 @@ export class ReverseGeocodingService {
         private reverseGeocodingModel: Model<ReverseGeocoding>,
     ) {}
     // Call api and save database
+    @Cron(CronExpression.EVERY_5_MINUTES)
     getReverseGeocoding(lat: number, lon: number): Observable<any> {
         const url = `${this.apiUrl}/reverse?lat=${lat}&lon=${lon}&limit=5&appid=${this.apiKey}`;
 

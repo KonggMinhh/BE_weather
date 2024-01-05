@@ -18,12 +18,28 @@ export class CityController {
     constructor(private readonly cityService: CityService) {}
 
     // ========= Get city  ===========
-    @Get(':city')
+    // @Get(':city')
+    // getCity(@Param('city') city: string): Observable<any> {
+    //     return this.cityService.getCity(city);
+    // }
+    // ========= Get city by name ===========
+    @Get('byCity/:city')
     getCity(@Param('city') city: string): Observable<any> {
         return this.cityService.getCity(city);
     }
     // ========= Get city by coord  ===========
-    @Get(':lat/:lon')
+    // @Get(':lat/:lon')
+    // getCoordinates(
+    //     @Param('lat') lat: string,
+    //     @Param('lon') lon: string,
+    // ): Observable<any> {
+    //     return this.cityService.getCoordinates(
+    //         parseFloat(lat),
+    //         parseFloat(lon),
+    //     );
+    // }
+
+    @Get('byCoords/:lat/:lon')
     getCoordinates(
         @Param('lat') lat: string,
         @Param('lon') lon: string,
@@ -38,14 +54,19 @@ export class CityController {
     getAllCity() {
         return this.cityService.getAllCity();
     }
-    @Get('db/:city')
+    @Get('db/byCity/:city')
     getCityDB(@Param('city') city: string) {
         return this.cityService.getCityDB(city);
     }
+    // @Get('db/:city')
+    // getCityDB(@Param('city') city: string) {
+    //     return this.cityService.getCityDB(city);
+    // }
     @Post()
     createCity(@Body() createCityDto: CreateCityDto) {
         return this.cityService.createCity(createCityDto);
     }
+
     @Put('db/:city')
     updateCity(@Param('city') city: string, @Body() updateFields: any) {
         return this.cityService.updateCity(city, updateFields);

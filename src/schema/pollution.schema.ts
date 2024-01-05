@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-@Schema()
+@Schema({ timestamps: true })
 class Components {
     @Prop({ type: Number })
     co: number;
@@ -26,17 +26,6 @@ class Components {
 
     @Prop({ type: Number })
     nh3: number;
-    @Prop({
-        type: Date,
-        default: () => new Date(Date.now() + 7 * 60 * 60 * 1000),
-    }) // UTC+7
-    createdAt: Date;
-
-    @Prop({
-        type: Date,
-        default: () => new Date(Date.now() + 7 * 60 * 60 * 1000),
-    }) // UTC+7
-    updatedAt: Date;
 }
 
 @Schema()
@@ -64,6 +53,17 @@ export class Pollution extends Document {
 
     @Prop({ type: [List] })
     list: List[];
+    @Prop({
+        type: Date,
+        default: () => new Date(Date.now() + 7 * 60 * 60 * 1000),
+    }) // UTC+7
+    createdAt: Date;
+
+    @Prop({
+        type: Date,
+        default: () => new Date(Date.now() + 7 * 60 * 60 * 1000),
+    }) // UTC+7
+    updatedAt: Date;
 }
 
 export const PollutionSchema = SchemaFactory.createForClass(Pollution);

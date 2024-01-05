@@ -4,7 +4,7 @@ import axios, { AxiosResponse } from 'axios';
 import { Model } from 'mongoose';
 import { Observable, catchError, throwError } from 'rxjs';
 import { Forecast } from 'src/schema/forecast.schema';
-
+import { Cron, CronExpression } from '@nestjs/schedule';
 @Injectable()
 export class ForecastService {
     private readonly apiKey = '9bbc9de017cfa48a70c5390c42bc83c1';
@@ -13,6 +13,7 @@ export class ForecastService {
         @InjectModel(Forecast.name) private forecastModel: Model<Forecast>,
     ) {}
     // * * * Start Get Coord Forecast * * *
+    @Cron(CronExpression.EVERY_5_MINUTES)
     getFiveDayForecast(lat: number, lon: number): Observable<any> {
         const url = `${this.apiUrl}/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${this.apiKey}`;
         return new Observable((observer) => {
@@ -22,8 +23,7 @@ export class ForecastService {
                     const forecastData = response.data;
 
                     // Save to MongoDB
-                    this.saveForecastToDatabase(lon, lat, forecastData);
-
+                    this.saveForecastToDatabase(lat, lon, forecastData.list);
                     observer.next(forecastData);
                     observer.complete();
                 })
@@ -32,61 +32,67 @@ export class ForecastService {
                 });
         }).pipe(catchError((error) => throwError(() => error)));
     }
-
-    // * * * End Get Coord Forecast * * *
-
+    // Save Database
     async saveForecastToDatabase(
         lat: number,
         lon: number,
-        forecastData: any,
-    ): Promise<void> {
+        dataList: any[],
+    ): Promise<any[]> {
+        const weatherDocuments = dataList.map((item) => {
+            return {
+                lat: lat,
+                lon: lon,
+                dt: item.dt,
+                main: {
+                    temp: item.main.temp,
+                    feels_like: item.main.feels_like,
+                    temp_min: item.main.temp_min,
+                    temp_max: item.main.temp_max,
+                    pressure: item.main.pressure,
+                    sea_level: item.main.sea_level,
+                    grnd_level: item.main.grnd_level,
+                    humidity: item.main.humidity,
+                    temp_kf: item.main.temp_kf,
+                },
+                weather: item.weather.map((condition) => {
+                    return {
+                        id: condition.id,
+                        main: condition.main,
+                        description: condition.description,
+                        icon: condition.icon,
+                    };
+                }),
+                clouds: {
+                    all: item.clouds.all,
+                },
+                wind: {
+                    speed: item.wind.speed,
+                    deg: item.wind.deg,
+                    gust: item.wind.gust,
+                },
+                visibility: { all: item.visibility }, // Đảm bảo giữ nguyên kiểu dữ liệu của visibility
+                pop: { all: item.pop }, // Đảm bảo giữ nguyên kiểu dữ liệu của pop
+                rain: item.rain ? { '3h': item.rain['3h'] } : undefined,
+                sys: {
+                    pod: item.sys.pod,
+                },
+                dt_txt: item.dt_txt,
+            };
+        });
+
         try {
-            const existingForecast = await this.forecastModel.findOne({
-                lat,
-                lon,
-            });
-
-            if (existingForecast) {
-                // If the record exists, update its data
-                existingForecast.dt = forecastData.dt || Date.now();
-                existingForecast.main = forecastData.main;
-                existingForecast.weather = forecastData.weather;
-                existingForecast.clouds = forecastData.clouds;
-                existingForecast.wind = forecastData.wind;
-                existingForecast.visibility = forecastData.visibility;
-                existingForecast.pop = forecastData.pop;
-                existingForecast.rain = forecastData.rain;
-                existingForecast.sys = forecastData.sys;
-                existingForecast.dt_txt = forecastData.dt_txt;
-
-                await existingForecast.save();
-            } else {
-                // If the record doesn't exist, create a new one
-                const forecastRecord = new this.forecastModel({
-                    lat,
-                    lon,
-                    dt: forecastData.dt || Date.now(),
-                    main: forecastData.main,
-                    weather: forecastData.weather,
-                    clouds: forecastData.clouds,
-                    wind: forecastData.wind,
-                    visibility: forecastData.visibility,
-                    pop: forecastData.pop,
-                    rain: forecastData.rain,
-                    sys: forecastData.sys,
-                    dt_txt: forecastData.dt_txt,
-                });
-
-                await forecastRecord.save();
-            }
+            const insertedDocuments =
+                await this.forecastModel.insertMany(weatherDocuments);
+            return insertedDocuments; // Trả về mảng các document đã được chèn vào MongoDB
         } catch (error) {
-            // Handle error appropriately
-            console.error('Error saving forecast to database:', error.message);
-            throw error;
+            console.error('Lỗi khi lưu dữ liệu thời tiết vào MongoDB:', error);
+            throw new Error('Không thể lưu dữ liệu thời tiết vào MongoDB');
         }
     }
+    // * * * End Get Coord Forecast * * *
 
     // * * * Start Get City Forecast * * *
+    @Cron(CronExpression.EVERY_5_MINUTES)
     getFiveDayCityForecast(city: string): Observable<any> {
         const url = `${this.apiUrl}/forecast?q=${city}&units=metric&appid=${this.apiKey}`;
         return new Observable((observer) => {
@@ -96,7 +102,7 @@ export class ForecastService {
                     const forecastData = response.data;
 
                     // Save to MongoDB
-                    // this.saveForecastToDatabase(lon, lat, forecastData);
+                    this.saveForecastDatabase(city, forecastData.list);
 
                     observer.next(forecastData);
                     observer.complete();
@@ -106,17 +112,56 @@ export class ForecastService {
                 });
         }).pipe(catchError((error) => throwError(() => error)));
     }
+    // Save Database
+    async saveForecastDatabase(city: string, dataList: any[]): Promise<any[]> {
+        const weatherDocuments = dataList.map((item) => {
+            return {
+                city: city,
+                dt: item.dt,
+                main: {
+                    temp: item.main.temp,
+                    feels_like: item.main.feels_like,
+                    temp_min: item.main.temp_min,
+                    temp_max: item.main.temp_max,
+                    pressure: item.main.pressure,
+                    sea_level: item.main.sea_level,
+                    grnd_level: item.main.grnd_level,
+                    humidity: item.main.humidity,
+                    temp_kf: item.main.temp_kf,
+                },
+                weather: item.weather.map((condition) => {
+                    return {
+                        id: condition.id,
+                        main: condition.main,
+                        description: condition.description,
+                        icon: condition.icon,
+                    };
+                }),
+                clouds: {
+                    all: item.clouds.all,
+                },
+                wind: {
+                    speed: item.wind.speed,
+                    deg: item.wind.deg,
+                    gust: item.wind.gust,
+                },
+                visibility: { all: item.visibility }, // Đảm bảo giữ nguyên kiểu dữ liệu của visibility
+                pop: { all: item.pop }, // Đảm bảo giữ nguyên kiểu dữ liệu của pop
+                rain: item.rain ? { '3h': item.rain['3h'] } : undefined,
+                sys: {
+                    pod: item.sys.pod,
+                },
+                dt_txt: item.dt_txt,
+            };
+        });
 
-    // asyn saveForecastToDatabase(
-    //     city: string,
-    //     forecastData: ForecastItemDto[],
-    // ): Promise<void> {
-    //     // Thực hiện bất kỳ xử lý nào bạn cần trước khi lưu vào cơ sở dữ liệu
-    //     const forecastRecord = new this.forecastModel({
-    //         city,
-    //         data: forecastData,
-    //     });
-
-    //     await forecastRecord.save();
-    // }
+        try {
+            const insertedDocuments =
+                await this.forecastModel.insertMany(weatherDocuments);
+            return insertedDocuments; // Trả về mảng các document đã được chèn vào MongoDB
+        } catch (error) {
+            console.error('Lỗi khi lưu dữ liệu thời tiết vào MongoDB:', error);
+            throw new Error('Không thể lưu dữ liệu thời tiết vào MongoDB');
+        }
+    }
 }

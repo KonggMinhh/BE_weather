@@ -5,7 +5,7 @@ import { City } from '../../schema/city.schema';
 import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { CreateCityDto } from 'src/dto/city.dto';
-import { Cron } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 @Injectable()
 export class CityService {
     private readonly apiKey = '9bbc9de017cfa48a70c5390c42bc83c1';
@@ -13,7 +13,7 @@ export class CityService {
     constructor(@InjectModel(City.name) private weatherModel: Model<City>) {}
 
     // Get coordinates in city
-    @Cron('*/5 * * * * *')
+    @Cron(CronExpression.EVERY_5_MINUTES)
     getCoordinates(lat: number, lon: number): Observable<any> {
         const url = `${this.apiUrl}/weather/?lat=${lat}&lon=${lon}&units=metric&appid=${this.apiKey}`;
         return new Observable((observer) => {
@@ -32,24 +32,56 @@ export class CityService {
         });
     }
     // Save lat, lon in database
-    private async saveGeoToDatabase(
+    async saveGeoToDatabase(
         lat: number,
         lon: number,
-        weatherData: any[],
+        weatherData: any,
     ): Promise<void> {
-        const existingWeather = await this.weatherModel.findOne({ lat, lon });
-
-        if (!existingWeather) {
-            const weatherRecord = new this.weatherModel({
+        const cityRecord = new this.weatherModel({
+            city: weatherData.name || 'YourCityName', // Use city name from data or replace with a default name
+            coord: {
                 lat,
                 lon,
-                data: weatherData,
-            });
-            await weatherRecord.save();
-        }
+            },
+            weather: Array.isArray(weatherData.weather)
+                ? weatherData.weather.map((item) => ({
+                      id: item.id,
+                      main: item.main,
+                      description: item.description,
+                      icon: item.icon,
+                  }))
+                : [],
+            main: {
+                temp: weatherData.main?.temp || 0,
+                feels_like: weatherData.main?.feels_like || 0,
+                temp_min: weatherData.main?.temp_min || 0,
+                temp_max: weatherData.main?.temp_max || 0,
+                pressure: weatherData.main?.pressure || 0,
+                humidity: weatherData.main?.humidity || 0,
+            },
+            wind: {
+                speed: weatherData.wind?.speed || 0,
+                deg: weatherData.wind?.deg || 0,
+                gust: weatherData.wind?.gust || 0,
+            },
+            clouds: {
+                all: weatherData.clouds?.all || 0,
+            },
+            sys: {
+                typeValue: weatherData.sys?.type || 0,
+                id: weatherData.sys?.id || 0,
+                country: weatherData.sys?.country || '',
+                sunrise: weatherData.sys?.sunrise || 0,
+                sunset: weatherData.sys?.sunset || 0,
+                timezone: weatherData.timezone || 0,
+            },
+        });
+
+        await cityRecord.save();
     }
+
     // Get Weather in City
-    @Cron('*/5 * * * * *')
+    @Cron(CronExpression.EVERY_5_MINUTES)
     getCity(city: string): Observable<any> {
         const url = `${this.apiUrl}/weather/?q=${city}&appid=${this.apiKey}`;
         return new Observable((observer) => {
@@ -69,17 +101,49 @@ export class CityService {
     // Save city in database
     private async saveWeatherToDatabase(
         city: string,
-        weatherData: any[],
+        weatherData: any,
     ): Promise<void> {
-        const existingWeather = await this.weatherModel.findOne({ city });
+        const cityRecord = new this.weatherModel({
+            city: city || 'YourCityName', // Use city name from the API response or replace with a default name
+            coord: {
+                lat: weatherData.coord?.lat || 0,
+                lon: weatherData.coord?.lon || 0,
+            },
+            weather: Array.isArray(weatherData.weather)
+                ? weatherData.weather.map((item) => ({
+                      id: item.id,
+                      main: item.main,
+                      description: item.description,
+                      icon: item.icon,
+                  }))
+                : [],
+            main: {
+                temp: weatherData.main?.temp || 0,
+                feels_like: weatherData.main?.feels_like || 0,
+                temp_min: weatherData.main?.temp_min || 0,
+                temp_max: weatherData.main?.temp_max || 0,
+                pressure: weatherData.main?.pressure || 0,
+                humidity: weatherData.main?.humidity || 0,
+            },
+            wind: {
+                speed: weatherData.wind?.speed || 0,
+                deg: weatherData.wind?.deg || 0,
+                gust: weatherData.wind?.gust || 0,
+            },
+            clouds: {
+                all: weatherData.clouds?.all || 0,
+            },
+            sys: {
+                typeValue: weatherData.sys?.type || 0,
+                id: weatherData.sys?.id || 0,
+                country: weatherData.sys?.country || '',
+                sunrise: weatherData.sys?.sunrise || 0,
+                sunset: weatherData.sys?.sunset || 0,
+                timezone: weatherData.timezone || 0,
+            },
+        });
 
-        if (!existingWeather) {
-            const weatherRecord = new this.weatherModel({
-                city,
-                data: weatherData,
-            });
-            await weatherRecord.save();
-        }
+        await cityRecord.save();
     }
 
     // Create city new database
@@ -108,7 +172,7 @@ export class CityService {
     async deleteCity(city: string): Promise<City> {
         const result = await this.weatherModel.deleteOne({ city });
         if (result.deletedCount === 1) {
-            return { city, data: {} } as City;
+            return { city } as City;
         } else {
             throw new Error(
                 `Weather data for ${city} not found or not deleted`,

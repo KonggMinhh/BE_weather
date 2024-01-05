@@ -58,6 +58,7 @@ export class PollutionService {
     // * * * End Call Api And Save Database * * *
 
     // * * * Start Get Pollution In Database * * *
+    @Cron(CronExpression.EVERY_5_MINUTES)
     async getPollutionDB(lat: number, lon: number): Promise<Pollution | null> {
         try {
             const pollution = await this.pollutionModel
